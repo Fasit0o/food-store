@@ -1,0 +1,13 @@
+-- TP5 - Parte A
+-- Plan de índices para FoodStore
+--
+-- Resultado del análisis:
+-- Ninguna de las seis consultas analizadas justificó la creación
+-- de un índice nuevo.
+--
+-- Los índices existentes cubren los accesos indexables relevantes
+-- y los principales costos medidos corresponden a agregaciones,
+-- joins sobre grandes volúmenes y procesamiento de resultados.
+--
+-- No se agregan CREATE INDEX en este archivo para evitar
+-- sobre-indexación y costo innecesario de mantenimiento.
