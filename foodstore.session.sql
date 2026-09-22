@@ -96,3 +96,25 @@ CREATE INDEX idx_pedido_cliente
 
 CREATE INDEX idx_detalle_pedido_producto
     ON detalle_pedido(producto_id);
+
+-- Procedimiento de baja lógica de producto
+
+CREATE OR REPLACE PROCEDURE sp_desactivar_producto(
+    p_producto_id BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM producto
+        WHERE id = p_producto_id
+    ) THEN
+        RAISE EXCEPTION 'El producto con id % no existe', p_producto_id;
+    END IF;
+
+    UPDATE producto
+    SET activo = FALSE
+    WHERE id = p_producto_id;
+END;
+$$;
