@@ -1,0 +1,62 @@
+LOG DEL SIMULACRO DE INCIDENTE - VERSION ANONIMIZADA (Parte C)
+TP5 - Base de Datos II - Food Store - foodstore_tp3_prueba - 2026-11-06
+ESTADO: PARTE C — EJECUTADA 2026-11-06 (ventana aprox. 14:30-14:37 -03).
+Archivo log origen (NO incluido en entrega; no alterar en disco):
+  <RUTA_ANONIMIZADA>\postgresql-2026-11-06_090643.log
+Con hashes SCRAM historicos: NO se copian lineas ALTER USER/ROLE
+con material sensible. Solo se reproducen eventos sin hashes,
+orden, usuario, base, tipo y resultado.
+
+NOTA: Lo que sigue es reconstruccion anonimizada a partir de los
+resultados de consola proporcionados y del log local (verificado
+sin exponer hashes). No es copia verbatim del log bruto con hashes.
+
+CRONOLOGIA ANONIMIZADA (orden real; horas solo donde se confirmaron)
+- Ventana aprox. 14:30-14:37: configuracion temporal de logging
+  (ALTER SYSTEM + reload) y gestion temporal de credencial
+  (sin hashes ni contrasenas en este archivo).
+- ETAPA A (5 FATAL en la ventana; distinguir):
+  * 3 deliberados de simulacion (contrasena incorrecta como app_web)
+  * 2 adicionales durante pruebas posteriores de conexion
+  Formato por evento:
+  <timestamp> user=app_web database=foodstore_tp3_prueba FATAL: password authentication failed [DETALLE: regla pg_hba]
+  Detalle fino de cada FATAL no reproducido por anonimizacion.
+- ETAPA B: 14:33:44 -03 Conexion exitosa autenticada/autorizada:
+  <14:33:44> user=app_web database=foodstore_tp3_prueba method=scram-sha-256 resultado=OK
+- ETAPA C (sesion app_web, autocommit):
+  * statement: SELECT count(id) AS total_clientes FROM cliente;
+    resultado=OK filas=20005
+  * statement: SELECT count(*) AS total_pedidos FROM pedido;
+    resultado=OK filas=200006
+  * statement: SELECT id,email FROM cliente ORDER BY id;
+    resultado=ERROR falta de permisos sobre cliente (mensaje real conservado)
+  * statement: SELECT * FROM v_pedidos_cliente LIMIT 1;
+    resultado=ERROR falta de permisos sobre la vista (mensaje real conservado)
+  Alcance: conteos registran lectura/agregacion; no prueban dump.
+- ETAPA D (app_web, autocommit individual):
+  * statement: GRANT admin_datos TO app_web; -> ERROR rechazado
+  * statement: GRANT rol_soporte TO app_web; -> ERROR rechazado
+  * statement: SET ROLE admin_datos; -> ERROR rechazado
+  * statement: SET ROLE rol_soporte; -> ERROR rechazado
+  (No se reproducen textos literales de error; ver informe.)
+- ETAPA E - Verificacion posterior (postgres, solo lectura):
+  * app_web no miembro de admin_datos: OK
+  * app_web no miembro de rol_soporte: OK
+  * app_web miembro de rol_app_lectura: OK
+  * app_web miembro de rol_app_escritura: OK
+  * rolsuper=false; rolcreaterole=false; rolcanlogin=true: OK
+- RESTAURACION (ventana final):
+  * ALTER SYSTEM RESET log_statement / log_connections /
+    log_disconnections + pg_reload_conf()=true
+  * Verificacion SHOW: log_connections=default (vacio),
+    log_disconnections=off, log_statement=none
+  * Gestion de credencial: hash original restaurado en sesion
+    administrativa; luego nueva contrasena con \password app_web
+    con logging ya restaurado. VERIFICACION final: rolcanlogin=true,
+    rolsuper=false, rolcreaterole=false, existe contrasena: OK
+  NOTA: sentencias ALTER USER/ROLE con hashes NO se reproducen.
+
+VERIFICACION DE ANONIMIZACION
+[x] Sin hashes SCRAM | [x] Sin contrasenas | [x] Sin nombres/apellidos/emails
+[x] Sin IPs/hosts reales | [x] Sin rutas reales | [x] Se conserva orden/usuario/base/resultado
+El log original NO debe incluirse en el ZIP de entrega.

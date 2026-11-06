@@ -1,0 +1,260 @@
+-- ============================================================
+-- TP FOODSTORE - PARTE C: SIMULACRO DE INCIDENTE
+-- Base de Datos II - PostgreSQL 18.6
+-- ------------------------------------------------------------
+-- ESTADO: PARTE C — EJECUTADA 2026-11-06 (ventana aprox. 14:30-14:37).
+-- Procedimiento ejecutado manualmente sobre foodstore_tp3_prueba
+-- (ver docs/informe_incidente.md y docs/log_simulacro_anonimizado.txt).
+-- No ataca sistemas externos. No usa datos personales reales.
+-- RESULTADOS REALES (consola + log anonimizado, sin hashes):
+--   count(id)=20005; count(*) pedido=200006; SELECT id,email y
+--   v_pedidos_cliente rechazados; 4 escalaciones rechazadas;
+--   verificacion: sin membresia en admin_datos/rol_soporte.
+-- No modifica roles, permisos, pg_hba.conf ni configuracion
+-- permanente (ver §0 para reactivacion temporal de logging).
+--
+-- ADAPTACION FIEL A LA CONSIGNA (ver docs/informe_incidente.md):
+-- La consigna exige 9 pasos sobre `usuario` y `fn_autenticar`.
+-- En la base real NO existen ni la tabla `usuario` ni las
+-- funciones `fn_autenticar` / `fn_resetear_password` (operador).
+-- Por eso este simulacro NO invoca fn_autenticar (seria inventar
+-- un objeto existente) y sustituye, con diferencia explicita:
+--   - "intentos fallidos / exito de autenticacion" ->
+--     intentos de CONEXION PostgreSQL (psql) con contrasena
+--     incorrecta/correcta. NO equivale a fn_autenticar: no hay
+--     autenticacion de aplicacion instalada que probar.
+--   - "lectura masiva de usuario" ->
+--     lectura controlada de `cliente` (equivalente funcional),
+--     limitada a conteos y columnas no sensibles para app_web.
+-- La reconstruccion de `usuario` + `fn_autenticar` queda como
+-- PROPUESTA SEPARADA al final de este archivo (bloque comentado,
+-- NO ejecutar) y desarrollada en el informe.
+--
+-- Secuencia de la consigna cubierta aqui:
+--   1. intentos fallidos de autenticacion  -> seccion 1
+--   2. autenticacion exitosa               -> seccion 2
+--   3. lectura masiva controlada           -> seccion 3
+--   4. intento de escalamiento             -> seccion 4
+--   5. verificacion del resultado          -> seccion 5
+--   6. extraccion y anonimizacion del log  -> seccion 6
+--   7. reconstruccion con OpenCode         -> seccion 7 (prompt)
+--   8. comparacion real vs. reconstruccion -> seccion 8 (tabla)
+--   9. decision de contencion              -> seccion 9 (criterios)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 0. Precondiciones (verificar manualmente antes de empezar)
+-- ------------------------------------------------------------
+--   - Base verificada: current_database() = 'foodstore_tp3_prueba'
+--   - Respaldo previo confirmado por el operador.
+--   - Logging TEMPORAL: se activaron
+--       ALTER SYSTEM SET log_connections='all';
+--       ALTER SYSTEM SET log_disconnections='on';
+--       ALTER SYSTEM SET log_statement='all';
+--       SELECT pg_reload_conf();
+--     y al terminar se revertio con tres ALTER SYSTEM RESET +
+--     SELECT pg_reload_conf() (=true). Verificacion final: SHOW
+--     log_statement=none, log_disconnections=off,
+--     log_connections=default (vacio). Comandos manuales con postgres.
+--   - Roles de la Parte A aplicados (verificados en Parte A).
+--   - Sesiones SEPARADAS: terminal1 = operador/postgres (verificar),
+--     terminal2 = atacante simulado (app_web, bajo privilegio).
+--   - Anotar fecha/hora de inicio real en docs/informe_incidente.md.
+
+-- ------------------------------------------------------------
+-- 1. ETAPA A — Autenticacion fallida (conexion PostgreSQL)
+-- ------------------------------------------------------------
+-- EVENTO DEFINIDO: adivinacion de credencial de un rol EXISTENTE.
+-- Se intenta la conexion como app_web (existe en Parte A) con
+-- contrasena incorrecta, 3 veces. NO se usa rol inexistente
+-- (rol_inexistente_parteB fue Parte B; aqui se quiere probar
+-- que una credencial valida es necesaria, no el ruteo pg_hba).
+-- Dependencia de contrasena (ver informe §3): app_web tiene LOGIN
+-- pero el repositorio NO contiene su contrasena. El intento fallido
+-- depende de que exista una contrasena configurada para que la
+-- incorrecta represente adivinacion real. No cambiar contrasenas.
+-- NO es SQL: la autenticacion ocurre al abrir la conexion.
+-- Desde la terminal, como atacante simulado:
+--
+--   psql -h localhost -U app_web -d foodstore_tp3_prueba
+--   (contrasena INCORRECTA, a proposito)  -> 3 deliberados + 2
+--     adicionales observados = 5 FATAL en la ventana 14:30-14:37
+--     (diferenciarlos; ver informe §4).
+--   Resultado observado: FATAL: password authentication failed.
+--
+-- Diferencia explicita: esto NO prueba fn_autenticar, porque la
+-- funcion no existe. Prueba la capa de conexion de PostgreSQL
+-- (pg_hba.conf scram-sha-256 + contrasena del rol). En este entorno
+-- pg_hba es scram (Parte B, B), por lo que el fallo es significativo.
+-- No registrar la contrasena intentada en ningun archivo.
+
+-- ------------------------------------------------------------
+-- 2. ETAPA B — Autenticacion exitosa (conexion PostgreSQL)
+-- ------------------------------------------------------------
+-- Dependencia de contrasena (ver informe §4): app_web tiene LOGIN
+-- (roles.sql §2) pero el repositorio NO contiene su contrasena.
+-- La conexion exitosa depende de que exista una contrasena
+-- configurada y conocida por el operador. No cambiar contrasenas
+-- ni guardarlas/hashes en archivos. Conectar correctamente como
+-- app_web (contrasena real, solo interactiva, nunca en archivos) y
+-- verificar la sesion. La conexion exitosa queda en el log
+-- (autenticada/autorizada/ready con usuario/base/fecha) y debe ser
+-- identificable despues:
+SELECT current_user AS usuario_sesion, session_user AS usuario_conexion,
+       current_database() AS base_sesion;
+-- Membresias heredadas de la sesion (debe ser lectura+escritura):
+-- SELECT r.rolname AS rol_login, m.rolname AS miembro_de
+-- FROM pg_roles r
+-- JOIN pg_auth_members am ON am.member = r.oid
+-- JOIN pg_roles m ON m.oid = am.roleid
+-- WHERE r.rolname = current_user
+-- ORDER BY m.rolname;
+
+-- ------------------------------------------------------------
+-- 3. ETAPA C — Lectura masiva CONTROLADA (como app_web)
+-- ------------------------------------------------------------
+-- Como `usuario` no existe, se lee `cliente` (equivalente real).
+-- Demuestra el patron (SELECT identificable en el log) sin
+-- extraer datos personales: solo conteos, sin dump, sin emails,
+-- sin filas a archivo. Ejecutar como app_web en AUTOCOMMIT:
+-- cada sentencia es independiente; un ERROR en un intento no
+-- aborta ni bloquea los demas (no se envuelve en un unico BEGIN).
+-- Sin operaciones de escritura.
+--
+-- Justificacion de count(id) sobre cliente: roles.sql §6 otorga
+-- GRANT SELECT (id, nombre, apellido) ON TABLE cliente TO
+-- rol_app_lectura; por herencia app_web puede contar id. No se
+-- usa count(*) sobre cliente para evitar exigir SELECT general
+-- (que no tiene). count(*) sobre pedido se mantiene porque
+-- roles.sql otorga SELECT sobre pedido a ambos grupos (§5).
+-- Alcance (ver informe §5): count explica registros y deja
+-- sentencia en log, pero NO demuestra extraccion masiva de filas.
+--
+-- 3.1 Conteo de clientes (autocommit):
+SELECT count(id) AS total_clientes FROM cliente;
+-- 3.2 Conteo de pedidos (autocommit):
+SELECT count(*) AS total_pedidos FROM pedido;
+-- 3.3 Intentos sensibles (autocommit CADA UNO, por separado;
+--     conservar el mensaje real de PostgreSQL; no asumir el texto):
+--     SELECT id, email FROM cliente ORDER BY id;
+--     SELECT * FROM v_pedidos_cliente LIMIT 1;
+-- 3.4 (Opcional, no compartir) muestra de 10 filas no sensibles:
+--     SELECT id, nombre, apellido FROM cliente ORDER BY id LIMIT 10;
+-- NOTA: una lectura masiva REAL de email por app_web solo seria
+-- posible si existiera un privilegio erroneo (p. ej. SELECT
+-- general sobre cliente a rol_app_escritura, o un DEFAULT
+-- PRIVILEGES amplio). El simulacro verifica que eso NO ocurre.
+
+-- ------------------------------------------------------------
+-- 4. ETAPA D — Intento de escalacion hacia admin_datos (como app_web)
+-- ------------------------------------------------------------
+-- Diseno: un usuario de bajo privilegio NO puede otorgarse
+-- membresia en un rol privilegiado ni asumirlo. Los cuatro
+-- intentos se ejecutan INDIVIDUALMENTE, en AUTOCOMMIT, como
+-- app_web (nunca como postgres). No se asume el texto literal
+-- del error: conservar el mensaje real que devuelva PostgreSQL
+-- en cada caso y verificar despues (Etapa E) que no cambio
+-- ninguna membresia. Sin REVOKE automatico y sin conceder
+-- privilegios (no hay GRANT SUPERUSER):
+-- 4.1 Auto-otorgamiento de membresia privilegiada:
+--     GRANT admin_datos TO app_web;
+-- 4.2 Auto-otorgamiento del grupo de soporte:
+--     GRANT rol_soporte TO app_web;
+-- 4.3 Asuncion directa de rol privilegiado:
+--     SET ROLE admin_datos;
+-- 4.4 Asuncion directa del grupo de soporte:
+--     SET ROLE rol_soporte;
+-- Seguridad: ejecutar SOLO como app_web (nunca como postgres).
+-- Si alguna sentencia tuviera exito, tratarlo como incidente real
+-- (seccion 9 / informe §11): NO se espera exito con el esquema de
+-- la Parte A (app_web sin CREATEROLE). La contencion real la
+-- decide el operador (ver informe §F).
+
+-- ------------------------------------------------------------
+-- 5. Verificacion del resultado (como postgres, solo lectura)
+-- ------------------------------------------------------------
+-- 5.1 app_web NO debe ser miembro de admin_datos ni rol_soporte:
+SELECT r.rolname AS rol_login, m.rolname AS miembro_de
+FROM pg_roles r
+JOIN pg_auth_members am ON am.member = r.oid
+JOIN pg_roles m ON m.oid = am.roleid
+WHERE r.rolname = 'app_web' AND m.rolname IN ('admin_datos', 'rol_soporte');
+-- Esperado: 0 filas.
+-- 5.2 Privilegios de lectura: app_web/lectura sin email:
+-- SELECT grantee, table_name, column_name, privilege_type
+-- FROM information_schema.column_privileges
+-- WHERE table_name = 'cliente' AND column_name = 'email'
+--   AND grantee IN ('rol_app_lectura', 'rol_app_escritura', 'app_web');
+-- Esperado: 0 filas.
+
+-- ------------------------------------------------------------
+-- 6. Extraccion y anonimizacion del log (manual, fuera del SQL)
+-- ------------------------------------------------------------
+-- Copiar del log del servidor SOLO las lineas de la ventana del
+-- simulacro (por fecha/hora y usuario app_web) hacia
+-- docs/log_simulacro_anonimizado.txt, reemplazando:
+--   - IP/host de origen        -> <HOST_ANONIMIZADO>
+--   - emails y literales       -> <DATO_ANONIMIZADO>
+--   - nombres de archivos con datos -> <RUTA_ANONIMIZADA>
+-- Verificar que el resultado no contenga datos personales antes
+-- de compartirlo con una IA (Parte D).
+
+-- ------------------------------------------------------------
+-- 7. Reconstruccion del incidente mediante OpenCode (prompt)
+-- ------------------------------------------------------------
+-- Ejecutar (manual) con SOLO el log anonimizado adjunto:
+--   "A partir del siguiente log anonimizado de PostgreSQL,
+--    reconstruye la secuencia de eventos del simulacro:
+--    identifica actores, operaciones, errores de permisos y
+--    la ventana temporal. No inventes datos no presentes en
+--    el log; marca como DESCONOCIDO lo que no pueda inferirse."
+-- La respuesta de OpenCode se pega (sin datos sensibles) en
+-- docs/informe_incidente.md §10. NO inventar la respuesta:
+-- reconstruccion independiente PENDIENTE.
+
+-- ------------------------------------------------------------
+-- 8. Comparacion reconstruccion vs. realidad (tabla en informe)
+-- ------------------------------------------------------------
+-- Completar en docs/informe_incidente.md §10 con:
+--   Evento real | Reconstruido por OpenCode | Coincide (si/no)
+-- Pendiente solo la reconstruccion OpenCode.
+
+-- ------------------------------------------------------------
+-- 9. Decision de contencion (criterios; decision tras ejecutar)
+-- ------------------------------------------------------------
+-- Criterios ejecutados como simulacion (ver informe §11).
+-- Durante la SIMULACION no se ejecuta ningun REVOKE/rotacion/
+-- bloqueo; solo se registra. Ver informe §F para separar:
+--   SIMULACIÓN (no se ejecuta) vs RESPUESTA REAL (si fuera real).
+-- Criterios:
+--   - Lectura de email por app_web FUE posible -> incidente real.
+--   - Escalamiento a admin_datos TUVO exito -> incidente grave.
+--   - Ambos DENEGADOS (esperado) -> contencion minima.
+-- No tomar ninguna accion destructiva sin confirmacion humana.
+
+-- ============================================================
+-- PROPUESTA SEPARADA (NO EJECUTAR): reconstruccion de los
+-- objetos ausentes `usuario`, `fn_autenticar` y
+-- `fn_resetear_password`.
+-- ------------------------------------------------------------
+-- Implicaciones si se reconstruyera (en base de PRUEBA separada,
+-- nunca alterando foodstore_tp3_prueba sin respaldos):
+--   1. Crear tabla `usuario` con identificador, email UNIQUE y
+--      password_hash (nunca contrasena en claro), mas columnas
+--      de estado/bloqueo y timestamps. Definir su relacion con
+--      `cliente` (¿misma persona? ¿FK?) antes de crear nada.
+--   2. Implementar fn_autenticar(email, password) que compare
+--      contra el hash con funcion criptografica adecuada
+--      (p. ej. pgcrypto/bcrypt) y devuelva solo exito/fracaso,
+--      sin filtrar si el email existe. Una funcion SECURITY
+--      DEFINER que lea hashes es superficie de ataque: debe
+--      revocarse EXECUTE de PUBLIC y otorgarse solo al rol exacto.
+--   3. Implementar fn_resetear_password con flujo de token de
+--      un solo uso y expiracion, nunca con contrasena temporal
+--      enviada/verificable en claro.
+--   4. Rehacer el simulacro de la consigna literal contra esos
+--      objetos nuevos. Hasta entonces, la adaptacion de las
+--      secciones 1-3 (conexion PostgreSQL + cliente) es la unica
+--      fiel posible sin inventar objetos.
+-- Ninguna de estas sentencias se incluye activas en este archivo.
+-- ============================================================
