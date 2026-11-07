@@ -1,0 +1,3 @@
+﻿[2026-11-07 10:34:01] INICIO backup base=foodstore host=localhost puerto=5432 usuario=postgres
+[2026-11-07 10:34:01] Archivo destino: C:\Users\ServSPSanMartin\Downloads\food-store-master\food-store-master\backups\foodstore_20261107_103401.dump
+[2026-11-07 10:34:09] FIN backup OK inicio=2026-11-07 10:34:01 fin=2026-11-07 10:34:09 tamanio_bytes=4133796 archivo=C:\Users\ServSPSanMartin\Downloads\food-store-master\food-store-master\backups\foodstore_20261107_103401.dump
