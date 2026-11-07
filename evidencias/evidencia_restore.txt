@@ -1,0 +1,25 @@
+﻿Backup usado: C:\Users\ServSPSanMartin\Downloads\food-store-master\food-store-master\backups\foodstore_20261107_103401.dump
+Backup creado/modificado: 2026-11-07 10:34:09
+Inicio restore: 2026-11-07 10:59:23
+Destino exclusivo del simulacro: foodstore_restore_test
+Conteo original categoria = 5
+Conteo original cliente = 20005
+Conteo original producto = 50014
+Conteo original pedido = 200006
+Conteo original detalle_pedido = 500014
+foodstore_restore_test creada correctamente
+pg_restore finalizado correctamente
+Conteo categoria foodstore=5 restore=5
+Conteo cliente foodstore=20005 restore=20005
+Conteo producto foodstore=50014 restore=50014
+Conteo pedido foodstore=200006 restore=200006
+Conteo detalle_pedido foodstore=500014 restore=500014
+VALIDACION: todos los conteos coinciden con foodstore
+productos_invalidos=0
+detalles_invalidos=0
+VALIDACION: productos_invalidos=0
+VALIDACION: detalles_invalidos=0
+Fin restore: 2026-11-07 11:00:45
+RTO_observado_segundos=81.75
+RPO_observado_segundos=1513.84
+RESULTADO FINAL: RESTORE Y VALIDACIONES OK

@@ -1,0 +1,109 @@
+LOG DE AUDITORIA - PRUEBA (Parte B)
+TP5 - Base de Datos II - Food Store
+Base: foodstore_tp3_prueba - PostgreSQL local 18.6 (B: psql --version y PG_VERSION)
+============================================================
+ESTADO: PRUEBA CONTROLADA EJECUTADA 2026-11-06 13:52:25-13:53:01 -03.
+La seccion B contiene la evidencia real de la prueba. La seccion A
+es log operativo previo NO relacionado. La actividad de
+configuracion 13:49-13:51 es preparacion, no prueba funcional.
+============================================================
+Verificacion previa (B):
+- Archivo de log real (via current_logfiles):
+  C:\Program Files\PostgreSQL\18\data\log\postgresql-2026-11-06_090643.log
+- logging_collector = on (postgresql.conf:495, B)
+- log_file_mode = 0640 (B)
+- log_connections/log_disconnections/log_statement: defaults al inicio
+  (B; postgresql.auto.conf solo cabecera). Activacion a 'all'/'on'/'all'
+  temporal con ALTER SYSTEM + reload durante preparacion 13:49-13:51.
+- pg_hba.conf (B): host all all 127.0.0.1/32 y ::1/128 scram-sha-256
+  (exige contrasena; no es trust). En el log se muestra como linea 117.
+
+A. LOG PREVIO / NO RELACIONADO (verbatim)
+---- NO corresponde a la prueba controlada 13:52-13:53.
+2026-11-06 09:06:43 -03 LOG:  el sistema de bases de datos fue apagado en 2026-11-05 18:00:33 -03
+2026-11-06 09:11:43 -03 LOG:  empezando checkpoint: time
+2026-11-06 09:11:43 -03 LOG:  checkpoint completo: escritos 0 buffers (0.0%); escritos 3 buffers SLRU; 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.005 s, sync=0.003 s, total=0.041 s; archivos sincronizados=2, más largo=0.002 s, promedio=0.002 s; distancia=0 kB, estimación=0 kB; lsn=0/103E5FA0, lsn de redo=0/103E5F48
+2026-11-06 12:22:45 -03 FATAL:  cancelando la autenticación debido a que se agotó el tiempo de espera
+2026-11-06 12:41:44 -03 LOG:  empezando checkpoint: time
+2026-11-06 12:41:47 -03 LOG:  checkpoint completo: escritos 26 buffers (0.2%); escritos 1 buffers SLRU; 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=2.848 s, sync=0.023 s, total=2.893 s; archivos sincronizados=21, más largo=0.002 s, promedio=0.002 s; distancia=125 kB, estimación=125 kB; lsn=0/10405468, lsn de redo=0/10405410
+2026-11-06 12:51:44 -03 LOG:  empezando checkpoint: time
+2026-11-06 12:51:44 -03 LOG:  checkpoint completo: escritos 4 buffers (0.0%); escritos 0 buffers SLRU; 0 archivos WAL añadidos, 0 eliminados, 0 reciclados; write=0.428 s, sync=0.004 s, total=0.441 s; archivos sincronizados=3, más largo=0.002 s, promedio=0.002 s; distancia=18 kB, estimación=114 kB; lsn=0/10409EE8, lsn de redo=0/10409E90
+Notas seccion A:
+- FATAL 12:22:45 = timeout por falta de contrasena en revision previa.
+  NO es el login fallido controlado (13:52:50). No confundir.
+- Sin lineas de conexion/sentencia: consistente con defaults.
+
+ACTIVIDAD DE CONFIGURACION 13:49-13:52 (preparacion, NO prueba funcional)
+2026-11-06 13:49:37 -03 LOG:  sentencia: SHOW log_connections;
+2026-11-06 13:49:37 -03 LOG:  sentencia: SHOW log_disconnections;
+2026-11-06 13:50:10 -03 LOG:  sentencia: SHOW log_statement;
+2026-11-06 13:50:40 -03 LOG:  sentencia: ALTER SYSTEM SET log_connections = 'all';
+2026-11-06 13:50:40 -03 LOG:  sentencia: ALTER SYSTEM SET log_disconnections = 'on';
+2026-11-06 13:50:40 -03 LOG:  sentencia: SELECT pg_reload_conf();
+2026-11-06 13:51:54 -03 LOG:  conexión autenticada: identidad=postgres método=scram-sha-256 (C:/Program Files/PostgreSQL/18/data/pg_hba.conf:117)
+2026-11-06 13:51:54 -03 LOG:  conexión autorizada: usuario=postgres base_de_datos=foodstore_tp3_prueba nombre_de_aplicación=psql
+Nota: el ALTER de log_statement='all' NO aparece logueado porque antes
+era 'none' (no se loguea la propia activacion); su efecto se prueba
+porque los SELECT de las 13:52:25 SI aparecen (ver B).
+
+B. EVIDENCIA REAL - PRUEBA CONTROLADA 2026-11-06 13:52:25-13:53:01 (verbatim)
+---- Solo esta seccion es evidencia de la consigna.
+
+B.1 Conexion exitosa 13:52:25
+2026-11-06 13:52:25 -03 LOG:  conexión recibida: host=::1 port=54203
+2026-11-06 13:52:25 -03 LOG:  conexión autenticada: identidad=postgres método=scram-sha-256 (C:/Program Files/PostgreSQL/18/data/pg_hba.conf:117)
+2026-11-06 13:52:25 -03 LOG:  conexión autorizada: usuario=postgres base_de_datos=foodstore_tp3_prueba nombre_de_aplicación=psql
+2026-11-06 13:52:25 -03 LOG:  connection ready: setup total=56.902 ms, fork=23.107 ms, authentication=11.982 ms
+
+B.2 SELECT 13:52:25 (prueba que log_statement='all' temporal funcionó)
+2026-11-06 13:52:25 -03 LOG:  sentencia: SELECT current_user AS usuario_prueba, current_database() AS base_prueba;
+2026-11-06 13:52:25 -03 LOG:  sentencia: SELECT count(*) AS total_clientes_legibles FROM cliente;
+2026-11-06 13:52:25 -03 LOG:  sentencia: SELECT count(*) AS total_productos FROM producto;
+2026-11-06 13:52:25 -03 LOG:  sentencia: SELECT count(*) AS total_pedidos FROM pedido;
+2026-11-06 13:52:25 -03 LOG:  sentencia: SELECT count(*) AS total_v_productos FROM v_productos_activos;
+
+B.3 INSERT reversible 13:52:25
+2026-11-06 13:52:25 -03 LOG:  sentencia: BEGIN;
+2026-11-06 13:52:25 -03 LOG:  sentencia: INSERT INTO cliente (nombre, apellido, email)
+	VALUES ('Prueba', 'Auditoria', 'auditoria.prueba@foodstore.test')
+	RETURNING id;
+2026-11-06 13:52:25 -03 LOG:  sentencia: ROLLBACK;
+
+B.4 UPDATE reversible 13:52:25
+2026-11-06 13:52:25 -03 LOG:  sentencia: BEGIN;
+2026-11-06 13:52:25 -03 LOG:  sentencia: INSERT INTO cliente (nombre, apellido, email)
+	VALUES ('Prueba', 'Auditoria', 'auditoria.prueba@foodstore.test')
+	RETURNING id;
+2026-11-06 13:52:25 -03 LOG:  sentencia: UPDATE cliente SET apellido = 'AuditoriaModificado'
+	WHERE id = lastval()
+	RETURNING id, nombre, apellido;
+2026-11-06 13:52:25 -03 LOG:  sentencia: ROLLBACK;
+2026-11-06 13:52:25 -03 LOG:  desconexión: duración de sesión: 0:00:00.447 usuario=postgres base=foodstore_tp3_prueba host=::1 port=54203
+
+B.5 Login fallido controlado 13:52:50 (principal)
+2026-11-06 13:52:50 -03 LOG:  conexión recibida: host=::1 port=54230
+2026-11-06 13:52:50 -03 FATAL:  la autenticación password falló para el usuario rol_inexistente_parteB
+2026-11-06 13:52:50 -03 DETALLE:  No existe el rol rol_inexistente_parteB.
+	La conexión coincidió con el archivo C:/Program Files/PostgreSQL/18/data/pg_hba.conf línea 117: host    all             all             ::1/128                 scram-sha-256
+Nota: hubo un segundo intento identico a las 13:53:01, igualmente
+valido (FATAL + DETALLE rol_inexistente_parteB); se conserva el de
+13:52:50 como evidencia principal.
+
+Observaciones seccion B:
+- Ejecucion observada como usuario postgres (no app_web): demuestra
+  auditoria (quien/base/cuando), pero no ejercita permisos de Parte A.
+- INSERT/UPDATE constan como BEGIN...ROLLBACK en el log: reversibles
+  por semantica PostgreSQL (B). El conteo posterior de no persistencia
+  no forma parte de este fragmento (no se afirma como A).
+- Sin datos personales reales: solo email sintetico @foodstore.test.
+- La actividad SHOW/ALTER SYSTEM 13:49-13:51 es preparacion, no
+  parte de la prueba funcional.
+
+CONCLUSION
+- Operaciones registradas: conexion exitosa, SELECT x5, INSERT con
+  ROLLBACK, INSERT+UPDATE con ROLLBACK, desconexion, login fallido
+  controlado (x2). log_statement='all' temporal quedo demostrado por
+  la presencia de SELECT en el log.
+- Limitaciones: prueba corrio como postgres (no como roles de Parte A);
+  conteo de no persistencia no incluido; parametros aun en 'all'/'on'
+  (reversion pendiente, ver informe).
