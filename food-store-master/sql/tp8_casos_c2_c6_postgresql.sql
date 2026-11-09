@@ -1,0 +1,14 @@
+-- ============================================================
+-- tp8_casos_c2_c6_postgresql.sql — ARCHIVO OBSOLETO (no ejecutar)
+-- Este archivo combinaba las secciones C2 y C4 en un solo script,
+-- lo que impedia detenerse entre ambos casos (ejecutar con -f
+-- aplicaba las dos mutaciones a la vez). Fue reemplazado por dos
+-- archivos independientes, uno por caso:
+--   sql/tp8_caso_c2_postgresql.sql  (cambio de precio)
+--   sql/tp8_caso_c4_postgresql.sql  (baja logica + verificacion final)
+-- Cada uno conserva la guardia de base foodstore_tp8_prueba y se
+-- ejecuta por separado con -v ON_ERROR_STOP=1 segun el README
+-- (paso 10). Este archivo queda solo con comentarios para no
+-- romper referencias anteriores; NO contiene sentencias
+-- ejecutables y NO debe usarse para las pruebas.
+-- ============================================================
